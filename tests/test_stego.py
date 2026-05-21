@@ -77,3 +77,30 @@ def test_verificar_integridade_mensagem_diferente(tmp_path):
 
     assert resultado["iguais"] is False
     assert resultado["hash_original"] != resultado["hash_comparado"]
+
+
+def test_fluxo_completo_com_arquivos_reais(tmp_path):
+    """Smoke test usando os arquivos reais Imagem.png e mensagem.txt do projeto."""
+    base = Path(__file__).resolve().parent.parent
+    imagem_real = base / "Imagem.png"
+    mensagem_real = base / "mensagem.txt"
+
+    if not imagem_real.exists() or not mensagem_real.exists():
+        pytest.skip("arquivos do professor não estão presentes")
+
+    texto_original = mensagem_real.read_text(encoding="utf-8")
+    saida_imagem = tmp_path / "Imagem_com_mensagem.png"
+    saida_texto = tmp_path / "mensagem_extraida.txt"
+
+    stego.ocultar(str(imagem_real), texto_original, str(saida_imagem))
+    extraido = stego.extrair(str(saida_imagem))
+    saida_texto.write_text(extraido, encoding="utf-8")
+
+    integridade = stego.verificar_integridade(str(mensagem_real), str(saida_texto))
+    assert integridade["iguais"], (
+        f"mensagem corrompida! hash original={integridade['hash_original']} "
+        f"extraido={integridade['hash_comparado']}"
+    )
+
+    integridade_img = stego.verificar_integridade(str(imagem_real), str(saida_imagem))
+    assert not integridade_img["iguais"], "imagem com mensagem é idêntica à original — algo deu errado"

@@ -22,9 +22,11 @@ def extrair(imagem_path: str) -> str:
     """Lê a mensagem oculta em `imagem_path` e retorna o texto decodificado em UTF-8."""
     img = Image.open(imagem_path).convert("RGB")
     bytes_msg = stepic.decode(img)
-    if isinstance(bytes_msg, bytes):
-        return bytes_msg.decode("utf-8")
-    return bytes_msg
+    if isinstance(bytes_msg, str):
+        # stepic 0.5.0 retorna str onde cada codepoint é um byte (latin-1),
+        # então recuperamos os bytes originais e decodificamos como UTF-8.
+        bytes_msg = bytes_msg.encode("latin-1")
+    return bytes_msg.decode("utf-8")
 
 
 def _sha256_de_arquivo(caminho: str) -> str:
