@@ -1,0 +1,4 @@
+streamlit==1.40.2
+stepic==0.5.0
+Pillow==11.0.0
+pytest==8.3.4

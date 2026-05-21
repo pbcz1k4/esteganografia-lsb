@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+Imagem_com_mensagem.png
+mensagem_extraida.txt
