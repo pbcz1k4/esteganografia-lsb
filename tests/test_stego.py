@@ -38,3 +38,42 @@ def test_ocultar_modifica_bits_da_imagem(imagem_portadora, mensagem_curta, tmp_p
     bytes_original = imagem_portadora.read_bytes()
     bytes_saida = saida.read_bytes()
     assert bytes_original != bytes_saida, "imagem não foi modificada — mensagem não foi inserida"
+
+
+def test_extrair_retorna_mensagem_original(imagem_portadora, mensagem_curta, tmp_path):
+    saida = tmp_path / "com_mensagem.png"
+    stego.ocultar(str(imagem_portadora), mensagem_curta, str(saida))
+
+    recuperada = stego.extrair(str(saida))
+
+    assert recuperada == mensagem_curta
+
+
+def test_extrair_de_imagem_sem_mensagem_levanta(imagem_portadora):
+    with pytest.raises(Exception):
+        stego.extrair(str(imagem_portadora))
+
+
+def test_verificar_integridade_mensagem_identica(tmp_path):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("conteudo identico", encoding="utf-8")
+    b.write_text("conteudo identico", encoding="utf-8")
+
+    resultado = stego.verificar_integridade(str(a), str(b))
+
+    assert resultado["iguais"] is True
+    assert resultado["hash_original"] == resultado["hash_comparado"]
+    assert len(resultado["hash_original"]) == 64  # SHA-256 em hex
+
+
+def test_verificar_integridade_mensagem_diferente(tmp_path):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("um", encoding="utf-8")
+    b.write_text("outro", encoding="utf-8")
+
+    resultado = stego.verificar_integridade(str(a), str(b))
+
+    assert resultado["iguais"] is False
+    assert resultado["hash_original"] != resultado["hash_comparado"]
