@@ -82,8 +82,112 @@ with aba_ocultar:
 
 # ---------- Aba 2: Extrair ----------
 with aba_extrair:
-    st.subheader("Em construção (próxima task)")
+    st.subheader("Extrair mensagem oculta de uma imagem")
+
+    arquivo_com_msg = st.file_uploader(
+        "Imagem com mensagem oculta (.png)", type=["png"], key="up_extrair_img"
+    )
+    if arquivo_com_msg is None:
+        padrao = Path("Imagem_com_mensagem.png")
+        if padrao.exists():
+            st.info(f"Usando `{padrao.name}` por padrão.")
+            bytes_extr = padrao.read_bytes()
+        else:
+            bytes_extr = None
+    else:
+        bytes_extr = arquivo_com_msg.read()
+
+    if st.button("Extrair mensagem", type="primary", disabled=bytes_extr is None):
+        entrada_tmp = Path("_entrada_extrair_tmp.png")
+        entrada_tmp.write_bytes(bytes_extr)
+        try:
+            texto = stego.extrair(str(entrada_tmp))
+        except Exception as e:
+            st.error(f"Não foi possível extrair: {e}")
+            texto = None
+        finally:
+            entrada_tmp.unlink(missing_ok=True)
+
+        if texto is not None:
+            saida_txt = Path("mensagem_extraida.txt")
+            saida_txt.write_text(texto, encoding="utf-8")
+            st.success("Mensagem extraída com sucesso.")
+            st.metric("Palavras recuperadas", len(texto.split()))
+            st.text_area("Texto recuperado", value=texto, height=200, key="ta_extraido")
+            st.download_button(
+                "Baixar mensagem extraída",
+                data=texto.encode("utf-8"),
+                file_name="mensagem_extraida.txt",
+                mime="text/plain",
+            )
+
 
 # ---------- Aba 3: Integridade ----------
 with aba_integridade:
-    st.subheader("Em construção (próxima task)")
+    st.subheader("Comprovação de integridade")
+    st.caption(
+        "Comparamos a mensagem original com a extraída (devem ser idênticas) e a imagem original "
+        "com a imagem modificada (devem ter hashes diferentes, mas mesmas dimensões e modo)."
+    )
+
+    col_e, col_d = st.columns(2)
+    with col_e:
+        st.markdown("**Mensagens**")
+        msg_orig = st.file_uploader("mensagem.txt original", type=["txt"], key="up_msg_orig")
+        msg_extr = st.file_uploader("mensagem_extraida.txt", type=["txt"], key="up_msg_extr")
+
+        if msg_orig is None and Path("mensagem.txt").exists():
+            msg_orig_path = "mensagem.txt"
+        elif msg_orig is not None:
+            msg_orig_path = "_msg_orig_tmp.txt"
+            Path(msg_orig_path).write_bytes(msg_orig.read())
+        else:
+            msg_orig_path = None
+
+        if msg_extr is None and Path("mensagem_extraida.txt").exists():
+            msg_extr_path = "mensagem_extraida.txt"
+        elif msg_extr is not None:
+            msg_extr_path = "_msg_extr_tmp.txt"
+            Path(msg_extr_path).write_bytes(msg_extr.read())
+        else:
+            msg_extr_path = None
+
+        if msg_orig_path and msg_extr_path:
+            res = stego.verificar_integridade(msg_orig_path, msg_extr_path)
+            st.code(f"SHA-256 original : {res['hash_original']}\nSHA-256 extraída : {res['hash_comparado']}")
+            if res["iguais"]:
+                st.success("✅ Mensagens são idênticas — integridade preservada.")
+            else:
+                st.error("❌ Mensagens diferem — algo corrompeu o processo.")
+
+    with col_d:
+        st.markdown("**Imagens (portador)**")
+        img_orig_path = "Imagem.png" if Path("Imagem.png").exists() else None
+        img_mod_path = "Imagem_com_mensagem.png" if Path("Imagem_com_mensagem.png").exists() else None
+
+        if img_orig_path and img_mod_path:
+            res_img = stego.verificar_integridade(img_orig_path, img_mod_path)
+            st.code(
+                f"SHA-256 original    : {res_img['hash_original']}\n"
+                f"SHA-256 com mensagem: {res_img['hash_comparado']}"
+            )
+            if not res_img["iguais"]:
+                st.success(
+                    "✅ Imagens têm hashes diferentes — esperado, pois a mensagem foi gravada nos LSBs."
+                )
+            else:
+                st.warning("⚠️ Hashes iguais — nenhuma alteração foi feita.")
+
+            im_a = Image.open(img_orig_path)
+            im_b = Image.open(img_mod_path)
+            st.write(
+                {
+                    "dimensoes_original": im_a.size,
+                    "dimensoes_modificada": im_b.size,
+                    "modo_original": im_a.mode,
+                    "modo_modificada": im_b.mode,
+                    "estruturalmente_equivalentes": (im_a.size == im_b.size and im_a.mode == im_b.mode),
+                }
+            )
+        else:
+            st.info("Gere `Imagem_com_mensagem.png` na aba 1 antes de comparar.")
